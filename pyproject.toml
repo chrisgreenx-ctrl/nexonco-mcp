@@ -1,6 +1,6 @@
 [project]
 name = "nexonco-mcp"
-version = "0.1.18"
+version = "0.1.19"
 description = "An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -9,10 +9,13 @@ dependencies = [
     "smithery>=0.4.2",
     "pandas>=2.2.3",
     "requests>=2.32.3",
+    "starlette>=0.45.3",
+    "uvicorn>=0.34.0",
 ]
 
 [project.scripts]
 nexonco = "nexonco_mcp.server:main"
+nexonco-stdio = "nexonco_mcp.server:main_stdio"
 dev = "smithery.cli.dev:main"
 playground = "smithery.cli.playground:main"
 
