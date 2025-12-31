@@ -9,12 +9,58 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
-from starlette.routing import Mount
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
 
 from .api import CivicAPIClient
 
-API_VERSION = "0.1.19"
+API_VERSION = "0.1.20"
 BUILD_TIMESTAMP = "2025-12-31"
+
+# MCP Server Card following SEP-1649 specification
+MCP_SERVER_CARD = {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+    "version": "1.0",
+    "protocolVersion": "2025-06-18",
+    "serverInfo": {
+        "name": "nexonco",
+        "title": "Nexonco Clinical Evidence Server",
+        "version": API_VERSION,
+    },
+    "description": "An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research.",
+    "documentationUrl": "https://github.com/Nexgene-Research/nexonco-mcp",
+    "transport": {
+        "type": "sse",
+        "endpoint": "/sse",
+    },
+    "capabilities": {
+        "tools": {},
+    },
+    "authentication": {
+        "required": False,
+        "schemes": [],
+    },
+    "tools": [
+        {
+            "name": "search_clinical_evidence",
+            "description": "Perform a flexible search for clinical evidence using combinations of filters such as disease, therapy, molecular profile, phenotype, evidence type, and direction.",
+        }
+    ],
+    "instructions": "Use this server to search and analyze clinical evidence data from the CIViC database for precision medicine and oncology research.",
+}
+
+# MCP Config Schema for session configuration
+MCP_CONFIG_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nexonco-mcp.smithery.ai/.well-known/mcp-config",
+    "title": "MCP Session Configuration",
+    "description": "Schema for the /mcp endpoint configuration",
+    "x-query-style": "dot+bracket",
+    "type": "object",
+    "properties": {},
+    "required": [],
+}
 
 
 @smithery.server()
@@ -191,6 +237,45 @@ def create_server() -> FastMCP:
     return mcp
 
 
+# HTTP endpoint handlers for Smithery discovery
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint for container orchestration."""
+    return JSONResponse(
+        {"status": "healthy", "version": API_VERSION, "timestamp": BUILD_TIMESTAMP},
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+async def get_server_card(request: Request) -> JSONResponse:
+    """Return MCP Server Card for Smithery discovery (SEP-1649)."""
+    return JSONResponse(
+        MCP_SERVER_CARD,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+async def get_mcp_config(request: Request) -> JSONResponse:
+    """Return MCP config schema for session configuration."""
+    return JSONResponse(
+        MCP_CONFIG_SCHEMA,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+async def get_version(request: Request) -> JSONResponse:
+    """Return server version information."""
+    return JSONResponse(
+        {"version": API_VERSION, "build": BUILD_TIMESTAMP, "name": "nexonco"},
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 def main():
     """Run the MCP server with HTTP transport for Smithery deployment.
 
@@ -202,9 +287,18 @@ def main():
     # Get port from environment (Smithery sets this to 8081)
     port = int(os.environ.get("PORT", 8080))
 
-    # Create Starlette app with CORS middleware for cross-origin requests
+    # Create Starlette app with CORS middleware and discovery endpoints
     app = Starlette(
         routes=[
+            # Health check and version endpoints
+            Route("/health", health_check, methods=["GET"]),
+            Route("/version", get_version, methods=["GET"]),
+            # MCP Server Card discovery endpoints (SEP-1649)
+            Route("/.well-known/mcp.json", get_server_card, methods=["GET"]),
+            Route("/.well-known/mcp/server-card.json", get_server_card, methods=["GET"]),
+            # MCP Config schema for Smithery session configuration
+            Route("/.well-known/mcp-config", get_mcp_config, methods=["GET"]),
+            # Mount the MCP SSE app at root for MCP protocol communication
             Mount("/", app=mcp.sse_app()),
         ],
     )
