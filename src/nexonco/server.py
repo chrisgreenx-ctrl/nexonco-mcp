@@ -1,14 +1,13 @@
+import contextlib
 from collections import Counter
+from collections.abc import AsyncIterator
 from typing import Optional
 
 import pandas as pd
 import uvicorn
-from mcp.server import Server
 from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
 from pydantic import Field
 from starlette.applications import Starlette
-from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
@@ -16,13 +15,15 @@ from starlette.routing import Mount, Route
 
 from .api import CivicAPIClient
 
-API_VERSION = "0.1.17"
-BUILD_TIMESTAMP = "2025-08-12"
+API_VERSION = "0.1.18"
+BUILD_TIMESTAMP = "2025-12-31"
 
+# Create FastMCP with Streamable HTTP support (stateless for scalability)
 mcp = FastMCP(
     name="nexonco",
-    description="An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research.",
-    version=API_VERSION,
+    instructions="An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research.",
+    stateless_http=True,
+    json_response=True,
 )
 
 
@@ -208,7 +209,7 @@ async def server_card(request: Request) -> JSONResponse:
         "documentationUrl": "https://github.com/Nexgene-Research/nexonco-mcp#readme",
         "license": "MIT",
         "transport": {
-            "type": "sse",
+            "type": "streamable-http",
             "endpoint": f"{base_url}/mcp"
         },
         "authentication": {
@@ -286,7 +287,7 @@ async def mcp_discovery(request: Request) -> JSONResponse:
     base_url = str(request.base_url).rstrip('/')
     return JSONResponse({
         "mcpEndpoint": f"{base_url}/mcp",
-        "transport": "sse",
+        "transport": "streamable-http",
         "serverCard": f"{base_url}/.well-known/mcp.json",
         "configSchema": f"{base_url}/.well-known/mcp-config",
         "capabilities": {
@@ -885,52 +886,49 @@ async def homepage(request: Request) -> HTMLResponse:
     return HTMLResponse(html_content)
 
 
-def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
-    """Create a Starlette application that can server the provied mcp server with SSE.
+def create_starlette_app(mcp_instance: FastMCP, *, debug: bool = False) -> Starlette:
+    """Create a Starlette application with Streamable HTTP transport.
 
-    This sets up the HTTP routes and SSE connection handling.
+    This sets up the HTTP routes and Streamable HTTP connection handling
+    following the MCP protocol specification from 2025-03-26.
     """
-    # Create an SSE transport with a path for messages
-    sse = SseServerTransport("/messages/")
+    # Configure the streamable HTTP path to be at root of /mcp mount
+    mcp_instance.settings.streamable_http_path = "/"
 
-    async def handle_sse(request: Request) -> None:
-        async with sse.connect_sse(
-            request.scope,
-            request.receive,
-            request._send,
-        ) as (read_stream, write_stream):
-            await mcp_server.run(
-                read_stream,
-                write_stream,
-                mcp_server.create_initialization_options(),
-            )
+    @contextlib.asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        """Context manager for managing session manager lifecycle."""
+        async with mcp_instance.session_manager.run():
+            yield
 
-    return Starlette(
+    # Create Starlette app with routes
+    starlette_app = Starlette(
         debug=debug,
         routes=[
             Route("/", endpoint=homepage),
             Route("/health", endpoint=healthcheck),
             Route("/version", endpoint=version),
-            Route("/sse", endpoint=handle_sse),
-            Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
             Route("/.well-known/mcp.json", endpoint=server_card),  # SEP-1649 primary discovery endpoint
-            Route("/.well-known/mcp", endpoint=mcp_discovery),  # MCP server discovery endpoint
             Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config schema discovery
             Route("/.well-known/mcp/server-card.json", endpoint=server_card),  # SEP-1649 standard endpoint
             Route("/mcp-card", endpoint=server_card),  # Legacy MCP server card metadata endpoint
-            Mount("/messages/", app=sse.handle_post_message),
+            # Mount MCP streamable HTTP at /mcp (Smithery expects this)
+            Mount("/mcp", app=mcp_instance.streamable_http_app()),
         ],
-        middleware=[
-            Middleware(
-                CORSMiddleware,
-                allow_origins=["*"],
-                allow_credentials=True,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["mcp-session-id", "mcp-protocol-version"],
-            )
-        ],
+        lifespan=lifespan,
     )
+
+    # Wrap with CORS middleware to expose Mcp-Session-Id header for browser clients
+    starlette_app = CORSMiddleware(
+        starlette_app,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["Mcp-Session-Id", "mcp-session-id"],
+    )
+
+    return starlette_app
 
 
 def main():
@@ -938,13 +936,13 @@ def main():
     import os
 
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Run MCP SSE-based server")
+    parser = argparse.ArgumentParser(description="Run MCP Streamable HTTP server")
     parser.add_argument(
         "--transport",
         type=str,
-        choices=["stdio", "sse"],
+        choices=["stdio", "http", "sse"],
         default="stdio",
-        help="Transport mechanism to use ('stdio' for Claude, 'sse' for NANDA)",
+        help="Transport mechanism to use ('stdio' for Claude Desktop, 'http' for Smithery/web)",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument(
@@ -955,12 +953,13 @@ def main():
     )
     args = parser.parse_args()
 
-    # Create and run the Starlette application
-    if args.transport == "sse":
-        mcp_server = mcp._mcp_server
-        starlette_app = create_starlette_app(mcp_server, debug=True)
+    # Create and run the appropriate transport
+    if args.transport in ("http", "sse"):
+        # Use Streamable HTTP transport (recommended for production)
+        starlette_app = create_starlette_app(mcp, debug=True)
         uvicorn.run(starlette_app, host=args.host, port=args.port)
     else:
+        # Use stdio transport for Claude Desktop
         mcp.run(transport="stdio")
 
 
