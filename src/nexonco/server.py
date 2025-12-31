@@ -190,6 +190,80 @@ async def version(request):
     return JSONResponse({"version": API_VERSION, "build": BUILD_TIMESTAMP})
 
 
+async def server_card(request: Request) -> JSONResponse:
+    """Return MCP server card metadata for Smithery discovery."""
+    return JSONResponse({
+        "name": "nexonco",
+        "version": API_VERSION,
+        "description": "An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research.",
+        "author": "Nexgene AI",
+        "homepage": "https://github.com/Nexgene-Research/nexonco-mcp",
+        "license": "MIT",
+        "capabilities": {
+            "tools": [
+                {
+                    "name": "search_clinical_evidence",
+                    "description": "Perform a flexible search for clinical evidence using combinations of filters such as disease, therapy, molecular profile, phenotype, evidence type, and direction.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "disease_name": {
+                                "type": "string",
+                                "description": "Name of the disease to filter evidence by"
+                            },
+                            "therapy_name": {
+                                "type": "string",
+                                "description": "Therapy or drug name involved in the evidence"
+                            },
+                            "molecular_profile_name": {
+                                "type": "string",
+                                "description": "Molecular profile or gene name or variant name"
+                            },
+                            "phenotype_name": {
+                                "type": "string",
+                                "description": "Name of the phenotype or histological subtype"
+                            },
+                            "evidence_type": {
+                                "type": "string",
+                                "description": "Evidence classification: PREDICTIVE, DIAGNOSTIC, PROGNOSTIC, PREDISPOSING, or FUNCTIONAL"
+                            },
+                            "evidence_direction": {
+                                "type": "string",
+                                "description": "Direction of the evidence: SUPPORTS or DOES_NOT_SUPPORT"
+                            },
+                            "filter_strong_evidence": {
+                                "type": "boolean",
+                                "description": "If set to True, only evidence with a rating above 3 will be included",
+                                "default": false
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "transport": "sse",
+        "endpoint": "/mcp"
+    })
+
+
+async def mcp_config(request: Request) -> JSONResponse:
+    """Return MCP configuration for Smithery discovery."""
+    return JSONResponse({
+        "mcpServers": {
+            "nexonco": {
+                "url": "/mcp",
+                "transport": "sse"
+            }
+        },
+        "configSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False
+        },
+        "requiresAuth": False
+    })
+
+
 async def homepage(request: Request) -> HTMLResponse:
     html_content = """
     <!DOCTYPE html>
@@ -777,6 +851,8 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
             Route("/version", endpoint=version),
             Route("/sse", endpoint=handle_sse),
             Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
+            Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config discovery
+            Route("/mcp-card", endpoint=server_card),  # MCP server card metadata
             Mount("/messages/", app=sse.handle_post_message),
         ],
         middleware=[
