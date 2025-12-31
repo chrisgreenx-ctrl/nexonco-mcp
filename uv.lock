@@ -30,6 +30,15 @@ wheels = [
 ]
 
 [[package]]
+name = "art"
+version = "6.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/7d/7d80509bbd19fb747edef94ba487dbadd2747944774ccc0528ad0d005a36/art-6.5.tar.gz", hash = "sha256:a98d77b42c278697ec6cf4b5bdcdfd997f6b2425332da078d4e31e31377d1844", size = 672902, upload-time = "2025-04-12T17:02:20.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/29/57b06fdb3abdf52c621d3ca3caea735e2db4c8d48288ebd26af448e8e247/art-6.5-py3-none-any.whl", hash = "sha256:70706408144c45c666caab690627d5c74aea7b6c7ce8cc968408ddeef8d84afd", size = 610382, upload-time = "2025-04-12T17:02:21.97Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -367,12 +376,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/fc/6dc7659c2ae5ddf280477011f4213a74f806862856b796ef08f028e664bf/mcp-1.25.0-py3-none-any.whl", hash = "sha256:b37c38144a666add0862614cc79ec276e97d72aa8ca26d622818d4e278b9721a", size = 233076, upload-time = "2025-12-19T10:19:55.416Z" },
 ]
 
-[package.optional-dependencies]
-cli = [
-    { name = "python-dotenv" },
-    { name = "typer" },
-]
-
 [[package]]
 name = "mdurl"
 version = "0.1.2"
@@ -384,23 +387,21 @@ wheels = [
 
 [[package]]
 name = "nexonco-mcp"
-version = "0.1.17"
-source = { virtual = "." }
+version = "0.1.18"
+source = { editable = "." }
 dependencies = [
-    { name = "mcp", extra = ["cli"] },
+    { name = "mcp" },
     { name = "pandas" },
     { name = "requests" },
-    { name = "starlette" },
-    { name = "uvicorn" },
+    { name = "smithery" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", extras = ["cli"], specifier = ">=1.25.0" },
+    { name = "mcp", specifier = ">=1.15.0" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "requests", specifier = ">=2.32.3" },
-    { name = "starlette", specifier = ">=0.46.1" },
-    { name = "uvicorn", specifier = ">=0.34.0" },
+    { name = "smithery", specifier = ">=0.4.2" },
 ]
 
 [[package]]
@@ -844,6 +845,23 @@ wheels = [
 ]
 
 [[package]]
+name = "smithery"
+version = "0.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "art" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "toml" },
+    { name = "typer" },
+    { name = "uvicorn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/75/d0b0fc1a5c10a20f3e01cefd98276ccbe7b44d74eeb6551bd2f42d8b4768/smithery-0.4.4.tar.gz", hash = "sha256:18ae19af8405e6476ca4984036d4460822ec1647ad2262addb4909d03387d671", size = 17396, upload-time = "2025-10-24T15:47:44.543Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/54/a088fa621c9c76a72a70079fac42b822137a1609ec08525168bd8e9f415d/smithery-0.4.4-py3-none-any.whl", hash = "sha256:883d060b3ecc73a2972019760e342f5a04b62edf18e3bc03594a41851319808a", size = 25372, upload-time = "2025-10-24T15:47:43.045Z" },
+]
+
+[[package]]
 name = "sniffio"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -875,6 +893,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ce/20/08dfcd9c983f6a6f4a1000d934b9e6d626cff8d2eeb77a89a68eef20a2b7/starlette-0.46.2.tar.gz", hash = "sha256:7f7361f34eed179294600af672f565727419830b54b7b084efe44bb82d2fccd5", size = 2580846, upload-time = "2025-04-13T13:56:17.942Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/0c/9d30a4ebeb6db2b25a841afbb80f6ef9a854fc3b41be131d249a977b4959/starlette-0.46.2-py3-none-any.whl", hash = "sha256:595633ce89f8ffa71a015caed34a5b2dc1c0cdb3f0f1fbd1e69339cf2abeec35", size = 72037, upload-time = "2025-04-13T13:56:16.21Z" },
+]
+
+[[package]]
+name = "toml"
+version = "0.10.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/ba/1f744cdc819428fc6b5084ec34d9b30660f6f9daaf70eead706e3203ec3c/toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f", size = 22253, upload-time = "2020-11-01T01:40:22.204Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b", size = 16588, upload-time = "2020-11-01T01:40:20.672Z" },
 ]
 
 [[package]]
