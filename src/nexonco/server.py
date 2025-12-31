@@ -272,26 +272,52 @@ async def server_card(request: Request) -> JSONResponse:
     })
 
 
-async def mcp_config(request: Request) -> JSONResponse:
-    """Return MCP configuration for Smithery discovery."""
+async def mcp_discovery(request: Request) -> JSONResponse:
+    """Return MCP server discovery metadata.
+
+    This endpoint provides information about where to find the MCP server
+    and its configuration following emerging MCP discovery standards.
+    """
+    base_url = str(request.base_url).rstrip('/')
     return JSONResponse({
-        "mcpServers": {
-            "nexonco": {
-                "url": "/mcp",
-                "transport": "sse"
-            }
-        },
-        "configSchema": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": False
-        },
-        "requiresAuth": False
+        "mcpEndpoint": f"{base_url}/mcp",
+        "transport": "sse",
+        "serverCard": f"{base_url}/.well-known/mcp/server-card.json",
+        "configSchema": f"{base_url}/.well-known/mcp-config",
+        "capabilities": {
+            "tools": True,
+            "resources": False,
+            "prompts": False
+        }
     }, headers={
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Cache-Control": "public, max-age=3600"
+    })
+
+
+async def mcp_config(request: Request) -> JSONResponse:
+    """Return MCP configuration schema for Smithery discovery.
+
+    This endpoint exposes a JSON Schema that Smithery uses to generate
+    configuration UIs. Configurations are passed to the server as URL parameters.
+    """
+    return JSONResponse({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": str(request.url),
+        "title": "Nexonco MCP Server Configuration",
+        "description": "Configuration for connecting to the Nexonco clinical evidence MCP server",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    }, headers={
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Cache-Control": "public, max-age=3600"
     })
 
 
@@ -882,7 +908,8 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
             Route("/version", endpoint=version),
             Route("/sse", endpoint=handle_sse),
             Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
-            Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config discovery
+            Route("/.well-known/mcp", endpoint=mcp_discovery),  # MCP server discovery endpoint
+            Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config schema discovery
             Route("/.well-known/mcp/server-card.json", endpoint=server_card),  # SEP-1649 standard endpoint
             Route("/mcp-card", endpoint=server_card),  # Legacy MCP server card metadata endpoint
             Mount("/messages/", app=sse.handle_post_message),
@@ -902,6 +929,7 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
 
 def main():
     import argparse
+    import os
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Run MCP SSE-based server")
@@ -913,7 +941,12 @@ def main():
         help="Transport mechanism to use ('stdio' for Claude, 'sse' for NANDA)",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PORT", "8080")),
+        help="Port to listen on (defaults to PORT env var or 8080)"
+    )
     args = parser.parse_args()
 
     # Create and run the Starlette application

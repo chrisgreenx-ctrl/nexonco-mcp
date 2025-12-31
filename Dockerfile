@@ -21,5 +21,5 @@ ENV PORT=8081
 # Expose the port your app listens on
 EXPOSE 8081
 
-# Run the application via uv script execution
-CMD ["uv", "run", "nexonco", "--transport", "sse", "--host", "0.0.0.0", "--port", "8081"]
+# Run the application via uv script execution (PORT env var is read automatically by server.py)
+CMD ["uv", "run", "nexonco", "--transport", "sse", "--host", "0.0.0.0"]
