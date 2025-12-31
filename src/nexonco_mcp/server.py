@@ -1,14 +1,19 @@
+import os
 from collections import Counter
 from typing import Optional
 
 import pandas as pd
+import uvicorn
 from smithery.decorators import smithery
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
+from starlette.applications import Starlette
+from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 
 from .api import CivicAPIClient
 
-API_VERSION = "0.1.18"
+API_VERSION = "0.1.19"
 BUILD_TIMESTAMP = "2025-12-31"
 
 
@@ -187,6 +192,37 @@ def create_server() -> FastMCP:
 
 
 def main():
+    """Run the MCP server with HTTP transport for Smithery deployment.
+
+    The server listens on the PORT environment variable (default 8080).
+    Smithery sets PORT to 8081 when deployed.
+    """
+    mcp = create_server()
+
+    # Get port from environment (Smithery sets this to 8081)
+    port = int(os.environ.get("PORT", 8080))
+
+    # Create Starlette app with CORS middleware for cross-origin requests
+    app = Starlette(
+        routes=[
+            Mount("/", app=mcp.sse_app()),
+        ],
+    )
+
+    # Add CORS middleware to allow requests from any origin
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Run the HTTP server
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+def main_stdio():
     """Run the MCP server with stdio transport for local development."""
     mcp = create_server()
     mcp.run(transport="stdio")

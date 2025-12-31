@@ -1,1 +1,15 @@
-runtime: "python"
+# Smithery configuration file
+# https://smithery.ai/docs/build/project-config/smithery-yaml
+
+runtime: "container"
+
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+
+startCommand:
+  type: "http"
+  configSchema:
+    type: "object"
+    properties: {}
+  exampleConfig: {}
