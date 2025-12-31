@@ -19,8 +19,7 @@ RUN uv venv \
 ENV PORT=8081
 
 # Expose the port your app listens on
-EXPOSE ${PORT}
+EXPOSE 8081
 
 # Run the application via uv script execution
-# Use sh -c to allow environment variable substitution
-CMD sh -c "uv run nexonco --transport sse --host 0.0.0.0 --port ${PORT}"
+CMD ["uv", "run", "nexonco", "--transport", "sse", "--host", "0.0.0.0", "--port", "8081"]
