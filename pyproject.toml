@@ -5,7 +5,7 @@ description = "An advanced MCP Server for accessing and analyzing clinical evide
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp[cli]==1.6.0",
+    "mcp[cli]>=1.25.0",
     "pandas>=2.2.3",
     "requests>=2.32.3",
     "starlette>=0.46.1",

@@ -22,4 +22,5 @@ ENV PORT=8081
 EXPOSE 8081
 
 # Run the application via uv script execution (PORT env var is read automatically by server.py)
-CMD ["uv", "run", "nexonco", "--transport", "sse", "--host", "0.0.0.0"]
+# Use streamable-http transport for Smithery deployment
+CMD ["uv", "run", "nexonco", "--transport", "http", "--host", "0.0.0.0"]
