@@ -192,6 +192,7 @@ async def version(request):
 
 async def server_card(request: Request) -> JSONResponse:
     """Return MCP server card metadata for Smithery discovery following SEP-1649 specification."""
+    base_url = str(request.base_url).rstrip('/')
     return JSONResponse({
         "$schema": "https://modelcontextprotocol.io/schemas/server-card.json",
         "version": "1.0",
@@ -208,7 +209,11 @@ async def server_card(request: Request) -> JSONResponse:
         "license": "MIT",
         "transport": {
             "type": "sse",
-            "endpoint": "/mcp"
+            "endpoint": f"{base_url}/mcp"
+        },
+        "authentication": {
+            "required": False,
+            "schemes": []
         },
         "capabilities": {
             "tools": {
@@ -266,7 +271,7 @@ async def server_card(request: Request) -> JSONResponse:
     }, headers={
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
         "Cache-Control": "public, max-age=3600"
     })
@@ -282,7 +287,7 @@ async def mcp_discovery(request: Request) -> JSONResponse:
     return JSONResponse({
         "mcpEndpoint": f"{base_url}/mcp",
         "transport": "sse",
-        "serverCard": f"{base_url}/.well-known/mcp/server-card.json",
+        "serverCard": f"{base_url}/.well-known/mcp.json",
         "configSchema": f"{base_url}/.well-known/mcp-config",
         "capabilities": {
             "tools": True,
@@ -292,7 +297,7 @@ async def mcp_discovery(request: Request) -> JSONResponse:
     }, headers={
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
         "Cache-Control": "public, max-age=3600"
     })
@@ -315,7 +320,7 @@ async def mcp_config(request: Request) -> JSONResponse:
     }, headers={
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
         "Cache-Control": "public, max-age=3600"
     })
@@ -908,6 +913,7 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
             Route("/version", endpoint=version),
             Route("/sse", endpoint=handle_sse),
             Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
+            Route("/.well-known/mcp.json", endpoint=server_card),  # SEP-1649 primary discovery endpoint
             Route("/.well-known/mcp", endpoint=mcp_discovery),  # MCP server discovery endpoint
             Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config schema discovery
             Route("/.well-known/mcp/server-card.json", endpoint=server_card),  # SEP-1649 standard endpoint
