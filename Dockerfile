@@ -15,8 +15,12 @@ ADD . /app
 RUN uv venv \
  && uv pip install -e .
 
+# Set default port for Smithery deployment
+ENV PORT=8081
+
 # Expose the port your app listens on
-EXPOSE 8080
+EXPOSE ${PORT}
 
 # Run the application via uv script execution
-CMD ["uv", "run", "nexonco", "--transport", "sse"]
+# Use sh -c to allow environment variable substitution
+CMD sh -c "uv run nexonco --transport sse --host 0.0.0.0 --port ${PORT}"

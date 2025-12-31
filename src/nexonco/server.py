@@ -8,6 +8,8 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from pydantic import Field
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Mount, Route
@@ -774,7 +776,17 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
             Route("/health", endpoint=healthcheck),
             Route("/version", endpoint=version),
             Route("/sse", endpoint=handle_sse),
+            Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
             Mount("/messages/", app=sse.handle_post_message),
+        ],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
         ],
     )
 
