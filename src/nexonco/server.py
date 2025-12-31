@@ -191,58 +191,84 @@ async def version(request):
 
 
 async def server_card(request: Request) -> JSONResponse:
-    """Return MCP server card metadata for Smithery discovery."""
+    """Return MCP server card metadata for Smithery discovery following SEP-1649 specification."""
     return JSONResponse({
-        "name": "nexonco",
-        "version": API_VERSION,
-        "description": "An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research.",
+        "$schema": "https://modelcontextprotocol.io/schemas/server-card.json",
+        "version": "1.0",
+        "protocolVersion": "2025-06-18",
+        "serverInfo": {
+            "name": "nexonco",
+            "title": "Nexonco Clinical Evidence Server",
+            "version": API_VERSION,
+            "description": "An advanced MCP Server for accessing and analyzing clinical evidence data, with flexible search options to support precision medicine and oncology research."
+        },
         "author": "Nexgene AI",
         "homepage": "https://github.com/Nexgene-Research/nexonco-mcp",
+        "documentationUrl": "https://github.com/Nexgene-Research/nexonco-mcp#readme",
         "license": "MIT",
+        "transport": {
+            "type": "sse",
+            "endpoint": "/mcp"
+        },
         "capabilities": {
-            "tools": [
-                {
-                    "name": "search_clinical_evidence",
-                    "description": "Perform a flexible search for clinical evidence using combinations of filters such as disease, therapy, molecular profile, phenotype, evidence type, and direction.",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "disease_name": {
-                                "type": "string",
-                                "description": "Name of the disease to filter evidence by"
-                            },
-                            "therapy_name": {
-                                "type": "string",
-                                "description": "Therapy or drug name involved in the evidence"
-                            },
-                            "molecular_profile_name": {
-                                "type": "string",
-                                "description": "Molecular profile or gene name or variant name"
-                            },
-                            "phenotype_name": {
-                                "type": "string",
-                                "description": "Name of the phenotype or histological subtype"
-                            },
-                            "evidence_type": {
-                                "type": "string",
-                                "description": "Evidence classification: PREDICTIVE, DIAGNOSTIC, PROGNOSTIC, PREDISPOSING, or FUNCTIONAL"
-                            },
-                            "evidence_direction": {
-                                "type": "string",
-                                "description": "Direction of the evidence: SUPPORTS or DOES_NOT_SUPPORT"
-                            },
-                            "filter_strong_evidence": {
-                                "type": "boolean",
-                                "description": "If set to True, only evidence with a rating above 3 will be included",
-                                "default": false
+            "tools": {
+                "listChanged": False,
+                "definitions": [
+                    {
+                        "name": "search_clinical_evidence",
+                        "description": "Perform a flexible search for clinical evidence using combinations of filters such as disease, therapy, molecular profile, phenotype, evidence type, and direction.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "disease_name": {
+                                    "type": "string",
+                                    "description": "Name of the disease to filter evidence by"
+                                },
+                                "therapy_name": {
+                                    "type": "string",
+                                    "description": "Therapy or drug name involved in the evidence"
+                                },
+                                "molecular_profile_name": {
+                                    "type": "string",
+                                    "description": "Molecular profile or gene name or variant name"
+                                },
+                                "phenotype_name": {
+                                    "type": "string",
+                                    "description": "Name of the phenotype or histological subtype"
+                                },
+                                "evidence_type": {
+                                    "type": "string",
+                                    "description": "Evidence classification: PREDICTIVE, DIAGNOSTIC, PROGNOSTIC, PREDISPOSING, or FUNCTIONAL"
+                                },
+                                "evidence_direction": {
+                                    "type": "string",
+                                    "description": "Direction of the evidence: SUPPORTS or DOES_NOT_SUPPORT"
+                                },
+                                "filter_strong_evidence": {
+                                    "type": "boolean",
+                                    "description": "If set to True, only evidence with a rating above 3 will be included",
+                                    "default": False
+                                }
                             }
                         }
                     }
-                }
-            ]
-        },
-        "transport": "sse",
-        "endpoint": "/mcp"
+                ]
+            },
+            "resources": {
+                "listChanged": False,
+                "definitions": []
+            },
+            "prompts": {
+                "listChanged": False,
+                "definitions": []
+            }
+        }
+    }, headers={
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Cache-Control": "public, max-age=3600"
     })
 
 
@@ -261,6 +287,11 @@ async def mcp_config(request: Request) -> JSONResponse:
             "additionalProperties": False
         },
         "requiresAuth": False
+    }, headers={
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type"
     })
 
 
@@ -852,7 +883,8 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
             Route("/sse", endpoint=handle_sse),
             Route("/mcp", endpoint=handle_sse),  # Smithery-compatible endpoint
             Route("/.well-known/mcp-config", endpoint=mcp_config),  # Smithery MCP config discovery
-            Route("/mcp-card", endpoint=server_card),  # MCP server card metadata
+            Route("/.well-known/mcp/server-card.json", endpoint=server_card),  # SEP-1649 standard endpoint
+            Route("/mcp-card", endpoint=server_card),  # Legacy MCP server card metadata endpoint
             Mount("/messages/", app=sse.handle_post_message),
         ],
         middleware=[
@@ -862,6 +894,7 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
                 allow_credentials=True,
                 allow_methods=["*"],
                 allow_headers=["*"],
+                expose_headers=["mcp-session-id", "mcp-protocol-version"],
             )
         ],
     )
