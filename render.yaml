@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nexonco-mcp
+    runtime: python
+    buildCommand: pip install uv && uv sync
+    startCommand: uv run nexonco-http
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: PYTHON_VERSION
+        value: 3.11
