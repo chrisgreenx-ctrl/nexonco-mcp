@@ -8,6 +8,7 @@ from smithery.decorators import smithery
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -22,7 +23,7 @@ BUILD_TIMESTAMP = "2025-12-31"
 MCP_SERVER_CARD = {
     "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
     "version": "1.0",
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-11-25",
     "serverInfo": {
         "name": "nexonco",
         "title": "Nexonco Clinical Evidence Server",
@@ -257,6 +258,14 @@ async def get_server_card(request: Request) -> JSONResponse:
     )
 
 
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        print(f"Request: {request.method} {request.url.path}")
+        response = await call_next(request)
+        print(f"Response: {response.status_code}")
+        return response
+
+
 async def get_mcp_config(request: Request) -> JSONResponse:
     """Return MCP config schema for session configuration."""
     return JSONResponse(
@@ -293,15 +302,23 @@ def main():
             # Health check and version endpoints
             Route("/health", health_check, methods=["GET"]),
             Route("/version", get_version, methods=["GET"]),
-            # MCP Server Card discovery endpoints (SEP-1649)
-            Route("/.well-known/mcp.json", get_server_card, methods=["GET"]),
-            Route("/.well-known/mcp/server-card.json", get_server_card, methods=["GET"]),
+            # MCP Server Card discovery endpoints (SEP-1649) and aliases
+            Route("/.well-known/mcp.json", get_server_card, methods=["GET", "HEAD"]),
+            Route("/.well-known/mcp/server-card.json", get_server_card, methods=["GET", "HEAD"]),
+            Route("/.well-known/mcp", get_server_card, methods=["GET", "HEAD"]),
+            Route("/mcp.json", get_server_card, methods=["GET", "HEAD"]),
+            Route("/server-card.json", get_server_card, methods=["GET", "HEAD"]),
+            # Smithery-compatible MCP endpoint (returning server card just in case)
+            Route("/mcp", get_server_card, methods=["GET", "HEAD"]),
             # MCP Config schema for Smithery session configuration
             Route("/.well-known/mcp-config", get_mcp_config, methods=["GET"]),
             # Mount the MCP SSE app at root for MCP protocol communication
             Mount("/", app=mcp.sse_app()),
         ],
     )
+
+    # Add logging middleware
+    app.add_middleware(LoggingMiddleware)
 
     # Add CORS middleware to allow requests from any origin
     app.add_middleware(
